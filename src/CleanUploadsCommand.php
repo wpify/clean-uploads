@@ -22,6 +22,6 @@ class CleanUploadsCommand extends WP_CLI_Command {
 	 * @param array $assoc_args Associative array of associative arguments.
 	 */
 	public function __invoke( $args, $assoc_args ) {
-		WP_CLI::success( 'Hello World!' );
+		WP_CLI::success( 'Test!' );
 	}
 }
