@@ -21,11 +21,8 @@ class CleanUploadsCommand extends WP_CLI_Command {
 	public function __invoke( array $args, array $assoc_args ) {
 		WP_CLI::line( "Requesting database dump..." );
 
-		$dump    = $this->get_sql_dump();
-		$uploads = $this->find_uploads_folder();
-
-		WP_CLI::line( "Processing files..." );
-
+		$dump       = $this->get_sql_dump();
+		$uploads    = $this->find_uploads_folder();
 		$file_count = $this->get_file_count( $uploads );
 		$progress   = WP_CLI\Utils\make_progress_bar( "Processing files...", $file_count );
 
