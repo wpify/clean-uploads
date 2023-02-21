@@ -50,8 +50,6 @@ class CleanUploadsCommand extends WP_CLI_Command {
 
 			if ( preg_match( "~[0-9]{4}/[0-9]{2}/(?<filename>[^/]+$)~m", $file, $matches ) ) {
 				if ( mb_strpos( $dump, $matches['filename'] ) === false ) {
-					WP_CLI::line( "remove " . $file );
-
 					if ( ! unlink( $file ) ) {
 						WP_CLI::line( "could not remove " . $file );
 					}
