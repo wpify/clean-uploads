@@ -15,12 +15,31 @@ class CleanUploadsCommand extends WP_CLI_Command {
 	 *
 	 * @when before_wp_load
 	 *
-	 * @param array $args       Indexed array of positional arguments.
+	 * @param array $args Indexed array of positional arguments.
 	 * @param array $assoc_args Associative array of associative arguments.
 	 */
 	public function __invoke( array $args, array $assoc_args ) {
-		WP_CLI::line( "Requesting database dump..." );
+		if ( is_multisite() ) {
+			$sites = get_sites();
 
+			foreach ( $sites as $site ) {
+				/** @var \WP_Site $site */
+				WP_CLI::line( "Processing site $site->siteurl..." );
+
+				switch_to_blog( $site->blog_id );
+
+				$this->process_file_removal();
+
+				restore_current_blog();
+			}
+		} else {
+			$this->process_file_removal();
+		}
+
+		WP_CLI::success( 'Finished!' );
+	}
+
+	private function process_file_removal() {
 		$dump       = $this->get_sql_dump();
 		$uploads    = $this->find_uploads_folder();
 		$file_count = $this->get_file_count( $uploads );
@@ -31,6 +50,8 @@ class CleanUploadsCommand extends WP_CLI_Command {
 
 			if ( preg_match( "~[0-9]{4}/[0-9]{2}/(?<filename>[^/]+$)~m", $file, $matches ) ) {
 				if ( mb_strpos( $dump, $matches['filename'] ) === false ) {
+					WP_CLI::line( "remove " . $file );
+
 					if ( ! unlink( $file ) ) {
 						WP_CLI::line( "could not remove " . $file );
 					}
@@ -41,8 +62,6 @@ class CleanUploadsCommand extends WP_CLI_Command {
 		WP_CLI::line( "Removing empty folders..." );
 
 		$this->remove_empty_folders( $uploads );
-
-		WP_CLI::success( 'Finished!' );
 	}
 
 	/**
@@ -62,13 +81,24 @@ class CleanUploadsCommand extends WP_CLI_Command {
 	 * @return string
 	 */
 	private function get_sql_dump(): string {
+		WP_CLI::line( "Requesting database dump..." );
+
 		$destination = sys_get_temp_dir() . DIRECTORY_SEPARATOR . wp_generate_uuid4() . '.sql';
 
 		if ( file_exists( $destination ) ) {
 			unlink( $destination );
 		}
 
-		exec( "mysqldump --user=" . DB_USER . " --password=" . DB_PASSWORD . " --host=" . DB_HOST . " " . DB_NAME . " > " . $destination );
+		global $wpdb;
+
+		// filter tables that belongs only to the current blog
+		$tables = array_filter( $wpdb->get_col( 'show tables' ), function ( $table ) use ( $wpdb ) {
+			return preg_match( '~^' . $wpdb->prefix . '\D~', $table );
+		} );
+
+		WP_CLI::line( join( ' ', $tables ) );
+
+		exec( "mysqldump --user=" . DB_USER . " --password=" . DB_PASSWORD . " --host=" . DB_HOST . " " . DB_NAME . " " . join( ' ', $tables ) . "> " . $destination );
 
 		$dump = file_get_contents( $destination );
 
@@ -123,6 +153,7 @@ class CleanUploadsCommand extends WP_CLI_Command {
 		}
 
 		if ( $empty ) {
+			WP_CLI::line( "remove empty folder " . $path );
 			@rmdir( $path );
 		}
 
@@ -132,7 +163,7 @@ class CleanUploadsCommand extends WP_CLI_Command {
 	/**
 	 * Walk through the uploads folder and run callback on each file.
 	 *
-	 * @param string   $dir
+	 * @param string $dir
 	 * @param callable $callback
 	 */
 	private function walk_all_files( string $dir, callable $callback ): void {
