@@ -16,7 +16,7 @@ Installing this package requires WP-CLI v2.5 or greater. Update to the latest st
 Once you've done so, you can install the latest stable version of this package with:
 
 ```bash
-composer install wpify/clean-uploads
+composer require wpify/clean-uploads
 ```
 
 ## Contributing
